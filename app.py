@@ -1,84 +1,243 @@
 import streamlit as st
-import pandas as pd
 import joblib
 import re
-import string
 import nltk
 
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-# Download NLTK resources only if missing
-try:
-    stopwords.words("english")
-except LookupError:
-    nltk.download("stopwords")
 
-try:
-    nltk.data.find("corpora/wordnet")
-except LookupError:
-    nltk.download("wordnet")
+# ---------------- PAGE CONFIG ----------------
+
+st.set_page_config(
+    page_title="Modi Sentiment Analysis",
+    page_icon="🇮🇳",
+    layout="centered"
+)
 
 
-@st.cache_resource
-def load_model():
-    model = joblib.load("sentiment_model.pkl")
-    tfidf = joblib.load("tfidf_vectorizer.pkl")
-    return model, tfidf
+# ---------------- BACKGROUND + CSS ----------------
+
+st.markdown(
+    """
+    <style>
+
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+    *{
+        font-family: 'Poppins', sans-serif;
+    }
 
 
-model, tfidf = load_model()
+    .stApp{
+
+        background-image:
+        linear-gradient(
+        rgba(0,0,0,0.65),
+        rgba(0,0,0,0.65)
+        ),
+        url("https://images.unsplash.com/photo-1529107386315-e1a2ed48a620");
+
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
 
 
-@st.cache_data
-def load_data():
-    return pd.read_csv("cleaned_modi_reviews.csv")
+    .main-card{
+
+        background: rgba(255,255,255,0.15);
+        backdrop-filter: blur(15px);
+
+        padding: 35px;
+        border-radius: 25px;
+
+        border:1px solid rgba(255,255,255,0.3);
+
+        box-shadow:
+        0 8px 32px rgba(0,0,0,0.4);
+
+    }
 
 
-df = load_data()
-import streamlit as st
+    h1{
 
-st.title("My Streamlit App")
-st.write("App is working!")
-# Initialize NLP Tools
-stop_words = set(stopwords.words("english"))
+        color:white;
+        text-align:center;
+        font-size:45px;
+        font-weight:700;
+
+    }
+
+
+    p{
+
+        color:white;
+        text-align:center;
+        font-size:18px;
+
+    }
+
+
+    label{
+
+        color:white !important;
+        font-size:18px !important;
+        font-weight:600;
+
+    }
+
+
+    textarea{
+
+        background:white !important;
+        border-radius:15px !important;
+
+        font-size:16px !important;
+
+    }
+
+
+    .stButton button{
+
+        width:100%;
+
+        background:
+        linear-gradient(90deg,#ff9933,#ffffff,#138808);
+
+        color:black;
+
+        font-size:20px;
+
+        font-weight:bold;
+
+        border-radius:30px;
+
+        padding:12px;
+
+        border:none;
+
+    }
+
+
+    .stButton button:hover{
+
+        transform:scale(1.05);
+
+        transition:0.3s;
+
+    }
+
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+
+# ---------------- LOAD MODEL ----------------
+
+
+model = joblib.load("sentiment_model.pkl")
+tfidf = joblib.load("tfidf_vectorizer.pkl")
+
+
+
+# ---------------- NLP CLEANING ----------------
+
+
 lemmatizer = WordNetLemmatizer()
 
+stop_words = set(stopwords.words("english"))
+
+
+
 def clean_text(text):
-    """
-    Clean and preprocess tweet text.
-    """
 
-    # Convert to lowercase
-    text = text.lower()
+    text=text.lower()
 
-    # Remove URLs
-    text = re.sub(r"http\S+|www\S+", "", text)
+    text=re.sub(r"http\S+|www\S+","",text)
 
-    # Remove @mentions
-    text = re.sub(r"@\w+", "", text)
+    text=re.sub(r"[^a-zA-Z]"," ",text)
 
-    # Remove hashtags symbol (#) but keep the word
-    text = re.sub(r"#", "", text)
 
-    # Remove numbers
-    text = re.sub(r"\d+", "", text)
+    words=text.split()
 
-    # Remove punctuation
-    text = text.translate(str.maketrans("", "", string.punctuation))
 
-    # Remove extra spaces
-    text = re.sub(r"\s+", " ", text).strip()
-
-    # Tokenize
-    words = text.split()
-
-    # Remove stopwords and lemmatize
-    words = [
+    words=[
         lemmatizer.lemmatize(word)
         for word in words
-        if word not in stop_words and len(word) > 2
+        if word not in stop_words
     ]
 
-    # Return cleaned sentence
+
     return " ".join(words)
+
+
+
+# ---------------- UI ----------------
+
+
+st.markdown(
+    """
+    <div class="main-card">
+
+    <h1>🇮🇳 Modi Reviews Sentiment Analysis</h1>
+
+    <p>
+    AI-powered NLP system to analyze public opinions
+    and predict sentiment from reviews.
+    </p>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+
+st.write("")
+
+
+
+review = st.text_area(
+    "Enter Review / Tweet",
+    placeholder="Example: Modi government has done great work..."
+)
+
+
+
+st.write("")
+
+
+if st.button("🔍 Predict Sentiment"):
+
+    if review.strip() == "":
+        st.warning("Please enter a review first.")
+
+    else:
+
+        cleaned = clean_text(review)
+
+        vector = tfidf.transform([cleaned])
+
+        prediction = model.predict(vector)[0]
+
+
+        st.write("Prediction:", prediction)
+
+
+        if prediction == "Positive":
+
+            st.success("😊 Positive Sentiment Detected")
+
+
+        elif prediction == "Negative":
+
+            st.error("😞 Negative Sentiment Detected")
+
+
+        else:
+
+            st.info("😐 Neutral Sentiment Detected")       
